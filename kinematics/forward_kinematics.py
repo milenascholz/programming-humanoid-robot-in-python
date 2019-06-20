@@ -21,6 +21,7 @@ import sys
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'joint_control'))
 
 from numpy.matlib import matrix, identity
+import numpy as np
 
 from angle_interpolation import AngleInterpolationAgent
 
@@ -35,9 +36,44 @@ class ForwardKinematicsAgent(AngleInterpolationAgent):
         self.transforms = {n: identity(4) for n in self.joint_names}
 
         # chains defines the name of chain and joints of the chain
-        self.chains = {'Head': ['HeadYaw', 'HeadPitch']
+        self.chains = {'Head': ['HeadYaw', 'HeadPitch'],
+                       'LArm': ['LShoulderPitch', 'LShoulderRoll', 'LElbowYaw', 'LElbowRoll'],
+                       'LLeg':['LHipYawPitch', 'LHipRoll', 'LHipPitch', 'LKneePitch', 'LAnklePitch', 'LAnkleRoll'],
+                       'RLeg':['RHipYawPitch', 'RHipRoll', 'RHipPitch', 'RKneePitch', 'RAnklePitch', 'RAnkleRoll'],
+                       'RArm': ['RShoulderPitch', 'RShoulderRoll', 'RElbowYaw', 'RElbowRoll']
                        # YOUR CODE HERE
                        }
+                       
+        self.jointOffsetsTo = {'HeadYaw': [0.00, 0.00, 126.50],
+                               'HeadPitch': [0.00, 0.00, 0.00],
+                               'LShoulderPitch': [0.00, 98.00, 100.00],
+                               'LShoulderRoll': [0.00, 0.00, 0.00],
+                               'LElbowYaw': [105.00, 15.00, 0.00],
+                               'LElbowRoll': [0.00, 0.00, 0.00],
+                               'LHipYawPitch': [0.00, 50.00, -85.00],
+                               'LHipRoll': [0.00, 0.00, 0.00],
+                               'LHipPitch': [0.00, 0.00, 0.00],
+                               'LKneePitch': [0.00, 0.00, -100.00],
+                               'LAnklePitch': [0.00, 0.00, -102.90],
+                               'LAnkleRoll': [0.00, 0.00, 0.00],
+                               'RShoulderPitch': [0.00, -98.00, 100.00],
+                               'RShoulderRoll': [0.00, 0.00, 0.00],
+                               'RElbowYaw': [105.00, -15.00, 0.00],
+                               'RElbowRoll': [0.00, 0.00, 0.00],
+                               'RHipYawPitch': [0.00, -50.00, -85.00],
+                               'RHipRoll': [0.00, 0.00, 0.00],
+                               'RHipPitch': [0.00, 0.00, 0.00],
+                               'RKneePitch': [0.00, 0.00, -100.00],
+                               'RAnklePitch': [0.00, 0.00, -102.90],
+                               'RAnkleRoll': [0.00, 0.00, 0.00]
+                              }
+        self.jointsX = np.array(['RElbowYaw', 'LElbowYaw', 'LHipRoll', 'LAnkleRoll', 'RHipRoll', 'RAnkleRoll'])
+        
+        self.jointsY = np.array(['HeadPitch', 'RShoulderPitch', 'LShoulderPitch', 'LHipPitch', 'LKneePitch', 'LAnklePitch', 'RHipPitch', 'RKneePitch', 'RAnklePitch'])
+        
+        self.jointsZ = np.array(['HeadYaw', 'RShoulderRoll', 'RElbowRoll', 'LShoulderRoll', 'LElbowRoll'])
+        
+        
 
     def think(self, perception):
         self.forward_kinematics(perception.joint)
@@ -52,6 +88,38 @@ class ForwardKinematicsAgent(AngleInterpolationAgent):
         :rtype: 4x4 matrix
         '''
         T = identity(4)
+        
+        if joint_name in self.jointsX:
+            T = np.array([[1.0, 0.0, 0.0, 0.0], 
+                            [0.0, np.cos(joint_angle), -np.sin(joint_angle), 0.0], 
+                            [0.0, np.sin(joint_angle), np.cos(joint_angle), 0.0],
+                            [self.jointOffsetsTo[joint_name][0], self.jointOffsetsTo[joint_name][1], self.jointOffsetsTo[joint_name][2], 1.0]])
+        
+        elif joint_name in self.jointsY:
+            T = np.array([[np.cos(joint_angle), 0.0, np.sin(joint_angle), 0.0], 
+                            [0.0, 1.0, 0.0, 0.0], 
+                            [-np.sin(joint_angle), 0.0, np.cos(joint_angle), 0.0],
+                            [self.jointOffsetsTo[joint_name][0], self.jointOffsetsTo[joint_name][1], self.jointOffsetsTo[joint_name][2], 1.0]])
+        
+        elif joint_name in self.jointsZ:
+            T = np.array([[np.cos(joint_angle), np.sin(joint_angle), 0.0, 0.0], 
+                            [-np.sin(joint_angle), np.cos(joint_angle), 0.0, 0.0], 
+                            [0.0, 0.0, 1.0, 0.0],
+                            [self.jointOffsetsTo[joint_name][0], self.jointOffsetsTo[joint_name][1], self.jointOffsetsTo[joint_name][2], 1.0]])
+            
+        else: #hip
+            R_y = np.array([[np.cos(joint_angle), 0.0, np.sin(joint_angle), 0.0], 
+                            [0.0, 1.0, 0.0, 0.0], 
+                            [-np.sin(joint_angle), 0.0, np.cos(joint_angle), 0.0],
+                            [self.jointOffsetsTo[joint_name][0], self.jointOffsetsTo[joint_name][1], self.jointOffsetsTo[joint_name][2], 1.0]])
+            
+            R_z = np.array([[np.cos(joint_angle), np.sin(joint_angle), 0.0, 0.0], 
+                            [-np.sin(joint_angle), np.cos(joint_angle), 0.0, 0.0], 
+                            [0.0, 0.0, 1.0, 0.0],
+                            [self.jointOffsetsTo[joint_name][0], self.jointOffsetsTo[joint_name][1], self.jointOffsetsTo[joint_name][2], 1.0]])
+            T = np.dot(R_y, R_z)
+              
+        
         # YOUR CODE HERE
 
         return T
@@ -66,6 +134,8 @@ class ForwardKinematicsAgent(AngleInterpolationAgent):
             for joint in chain_joints:
                 angle = joints[joint]
                 Tl = self.local_trans(joint, angle)
+                
+                T = T * Tl
                 # YOUR CODE HERE
 
                 self.transforms[joint] = T
